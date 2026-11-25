@@ -181,7 +181,14 @@ async def run_call(args):
         me=await client.get_me()
         peer=await client.get_entity(target)
         validate_peer(me.id,peer.id,bool(getattr(peer,'bot',False)),isinstance(peer,User))
-        ai=VoiceAI(service)
+        if getattr(args,'voice_backend','openai')=='local':
+            from local_voice import LocalVoiceAI
+            ai=LocalVoiceAI(service)
+            # Warm the local model before ringing, outside the call time limit.
+            await ai.answer_text('What is this test?')
+        else:
+            ai=VoiceAI(service)
+        deadline=time.monotonic()+120
         voice=PyTgCalls(client)
         @voice.on_update(filters.chat_update(ChatUpdate.Status.LEFT_CALL))
         async def ended(_client,update):
@@ -271,6 +278,7 @@ def main():
     commands.add_parser('login')
     commands.add_parser('connect',help='Interactive local login and recipient identity check; never places a call')
     call=commands.add_parser('call')
+    call.add_argument('--voice-backend',choices=['openai','local'],default='openai')
     call.add_argument('--service',required=True,help='JSON export of the saved approved service')
     call.add_argument('--confirm-call',action='store_true')
     call.add_argument('--consent',action='store_true',help='Both participants consent to this AI-processed test and provider audio processing')

@@ -1,6 +1,6 @@
 # Telegram personal-account voice prototype
 
-This is a local Python worker for one explicitly agreed Telegram test call. It is not a bot, a regular mobile carrier call, a cold-call campaign tool, or a running hosted service. No call or Telegram sign-in has been performed during development.
+This is a local Python worker for one explicitly agreed Telegram test call. It is not a bot, a regular mobile carrier call, a cold-call campaign tool, or a running hosted service. A two-account silent connection test has succeeded on Windows; conversational audio still requires a separate live test.
 
 ## Verified locally
 
@@ -23,6 +23,16 @@ The native library calls its live-audio input operation `record`; this worker re
 ## Website boundary
 
 Netlify cannot host this long-running native calling process. The website currently configures and exports approved service knowledge; it does not control this worker or place Telegram calls. The Telegram page must remain marked as setup until a persistent authenticated worker connection exists. Do not expose this worker or a local session file to the public internet. A future web-triggered call needs authenticated, owner-scoped requests, durable outcomes, deduplication and spending controls before activation.
+
+## Local voice without API credits
+
+Install `requirements-local.txt` into the worker environment. Download the Faster Whisper base model to `<model-directory>/whisper-base` and the Piper `en_US-ljspeech-medium` voice and JSON config to `<model-directory>`. Set `LOCAL_VOICE_DIR` to that absolute directory. Ollama must already serve `llama3.2:3b` on loopback port 11434; `OLLAMA_MODEL` may select another installed local model. No cloud models are selected automatically.
+
+Run the existing call command with `--voice-backend local`. This uses local CPU transcription, local Piper synthesis and loopback-only Ollama classification. No OpenAI key is needed, and call speech is not sent to OpenAI. Telegram still carries the call. The PC must remain running. Model files and credentials remain outside the repository.
+
+The local classifier first requires shared subject words with approved FAQs, accepts exact approved questions directly, then uses constrained JSON selection for other candidates. Unknown or invalid selections fall back to the approved handoff. This deliberately conservative matching may miss paraphrases; test the service's actual questions before use. It cannot generate arbitrary spoken answers. Stop detection remains deterministic. Local voices and recognition are checked with a synthetic speech round trip; this does not establish live microphone quality.
+
+Piper engine: [GPL-3.0-or-later](https://github.com/OHF-Voice/piper1-gpl). The selected voice's [model card](https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/ljspeech/medium/MODEL_CARD) identifies public-domain LJ Speech training data and training from scratch. [Faster Whisper](https://github.com/SYSTRAN/faster-whisper) is MIT licensed. Models are downloaded separately rather than bundled. Preserve model cards and review engine obligations before redistributing binaries.
 
 ## Sources and licenses
 
