@@ -7,6 +7,7 @@ import re
 import sys
 import wave
 from pathlib import Path
+from dialogue import phrase
 
 RATE = 24000
 BYTES_PER_SECOND = RATE * 2
@@ -34,7 +35,13 @@ def load_service(path: Path) -> dict:
             raise ValueError('Invalid approved answer.')
         if faq['id'] in ids or len(faq['question']) > 200 or len(faq['answer']) > 1000:
             raise ValueError('Invalid or duplicate approved answer.')
+        if 'question_tl' in faq and (not isinstance(faq['question_tl'],str) or len(faq['question_tl'])>200):
+            raise ValueError('Invalid Tagalog question aliases.')
+        if 'answer_tl' in faq and (not isinstance(faq['answer_tl'],str) or not faq['answer_tl'].strip() or len(faq['answer_tl'])>1000):
+            raise ValueError('Invalid approved Tagalog answer.')
         ids.add(faq['id'])
+    if 'greeting_tl' in service and (not isinstance(service['greeting_tl'],str) or not service['greeting_tl'].strip() or len(service['greeting_tl'])>4000):
+        raise ValueError('Invalid Tagalog greeting.')
     return service
 
 
@@ -46,7 +53,12 @@ def validate_peer(sender_id: int, recipient_id: int, is_bot: bool, is_user: bool
 
 
 def stop_requested(text: str) -> bool:
-    return bool(re.search(r'\b(stop|unsubscribe|goodbye|bye)\b|do not call|don.t call|remove me|not interested|end (the|this) call|ayoko|tama na', text, re.I))
+    value=re.sub(r'[^a-z0-9 ]','',text.lower()).strip()
+    if re.search(r'\b(unsubscribe|goodbye|bye)\b|do not call|dont call|remove me|not interested|end (the|this) call|ayoko|ibaba (mo )?(na )?(ang )?tawag',value):
+        return True
+    if re.search(r'^(please )?stop\b|\bplease stop\b|\bcan you stop\b|\byou can stop now\b',value):
+        return True
+    return bool(re.fullmatch(r'(tama na|tapos na|huwag na|wag na)( po)?',value) or re.search(r'(huwag|wag) (mo )?(na )?(akong )?tawagan',value))
 
 
 class ServiceConversation:
@@ -54,24 +66,33 @@ class ServiceConversation:
     def __init__(self, service):
         self.service = service
         self.awaiting_completion = False
+        self.language = 'en'
+
+    def say(self, key):
+        return phrase(key,self.language,self.service)
 
     def before_answer(self, text):
         normalized = re.sub(r'[^a-z0-9 ]', '', text.lower()).strip()
         if stop_requested(text):
-            return 'Understood. I will end the call now. Thank you for your time.', True
-        yes = normalized in {'yes','yes please','yeah','yep','yup','sure','okay','ok','oo','opo'}
-        no = normalized in {'no','no thanks','no thank you','nope','not now','not today','no need','no i dont need help','wala','wala naman','hindi'}
-        done = normalized in {'thanks','thank you','thats all','that is all','all good','im good','that helps','that answers my question','yes that answers it','yes thanks','yes thank you','nothing else','thank you thats all'}
+            return self.say('stop'), True
+        yes = normalized in {'yes','yes please','yeah','yep','yup','sure','okay','ok','oo','opo','sige','sige po','oo naman','yes po','oo sige','oo sige po'}
+        no = normalized in {'no','no thanks','no thank you','nope','not now','not today','no need','no i dont need help','wala','wala naman','hindi','wala na','hindi na','hindi po','hindi kailangan'}
+        done = normalized in {'thanks','thank you','thats all','that is all','all good','im good','that helps','that answers my question','yes that answers it','yes thanks','yes thank you','nothing else','thank you thats all','salamat','salamat po','okay na','ok na','yun lang','iyon lang','nasagot na','oo salamat'}
+        done = done or bool(re.fullmatch(r'(sige |okay |oo )?salamat( po)?',normalized))
         if self.awaiting_completion:
             if yes or done:
-                return 'Glad I could help. Thank you for your time. Goodbye!', True
+                return self.say('done'), True
             if no:
                 self.awaiting_completion = False
-                return 'Okay. What else would you like to know?', False
+                return self.say('more'), False
         elif no or done:
-            return 'No problem. Thank you for your time. Goodbye!', True
+            return self.say('decline'), True
         elif yes:
-            return f'Of course. What help do you need with {self.service["name"]}?', False
+            return self.say('help'), False
+        if normalized in {'busy','im busy','call later','later','busy ako','busy po','mamaya na','mamaya na lang','mamaya nalang'}:
+            return self.say('busy'), True
+        if normalized in {'hello','hi','hello po','kumusta','magandang araw'}:
+            return self.say('hello'), False
         return None
 
     def after_answer(self, reply, ended):
@@ -80,7 +101,7 @@ class ServiceConversation:
         answers = [f['answer'] for f in self.service['faqs']]
         if reply in answers or any(reply == a + ' ' + b for a in answers for b in answers):
             self.awaiting_completion = True
-            return reply + ' Does that answer your question?', False
+            return reply + ' ' + self.say('answered'), False
         return reply, False
 
 

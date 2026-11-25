@@ -1,6 +1,6 @@
 # Product Marketing Context
 
-**Document version:** v4
+**Document version:** v5
 **Last updated:** 2026-11-25
 **Status:** Pilot rates approved by founder on 2026-11-25. Contact email approved and stored in the private service snapshot.
 
@@ -23,6 +23,7 @@ Founder report: live voice audible but stuttering, 2026-11-25. Offline speech ro
 Hypothesis: a needs-first opener increases qualified requests for a personal demo compared with a feature-first opener. Change only the opening question; keep approved answers, price and contact method identical. Primary outcome: qualified demo requests per consenting completed call; guardrails: opt-outs, unrelated answers and hangup failures. No campaign launched or conversions recorded. Establish baseline and sample plan before claiming a winner.
 
 ## Changelog
+- v5 (2026-11-25) — Founder confirmed Tagalog input matched live answers. Added reviewed Tagalog response snapshots, cached experimental speech, language switching, repetition, slower playback and busy/completion patterns. Runtime commercial licensing and listener voice review remain pending.
 - v4 (2026-11-25) — Founder reported repeated fallback responses despite received speech. Replaced local keyword matching with contextual FAQ routing and GPU Whisper small; synthetic checks improved, live accuracy still pending.
 - v3 (2026-11-25) — Founder supplied the contact email; activated the contact and personal-help answers in the private service snapshot.
 - v2 (2026-11-25) — Founder approved pilot pricing and requested a male caller name; selected Marco. Contact email remains pending.

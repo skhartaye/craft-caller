@@ -257,13 +257,13 @@ async def run_call(args):
                 print('Playback finished; listening for the recipient.',flush=True)
         async def conversation():
             nonlocal speaking
-            opening=service['greeting'].strip() or f'Hi, I am calling from {service["company"]}. {service["reason"]} Do you need help with {service["name"]} today?'
-            await say(opening + ' You can say stop at any time.')
+            opening=(ai.opening() if hasattr(ai,'opening') else service['greeting']).strip() or f'Hi, I am calling from {service["company"]}. {service["reason"]} Do you need help with {service["name"]} today?'
+            await say(opening + ' ' + ai.conversation.say('stop_hint'))
             for _ in range(8):
                 try:
                     utterance=await asyncio.wait_for(queue.get(),timeout=20)
                 except TimeoutError:
-                    await say('I have not heard a reply, so I will end the call. Thank you for your time.')
+                    await say(ai.conversation.say('silence_end'))
                     return
                 speaking=True
                 detector.reset()
@@ -273,7 +273,7 @@ async def run_call(args):
                 await say(reply)
                 if should_end:
                     return
-            await say('That’s the end of this short test. Thank you for your time.')
+            await say(ai.conversation.say('limit_end'))
         task=asyncio.create_task(conversation())
         watcher=asyncio.create_task(end.wait())
         flusher=asyncio.create_task(flush_paused_speech())

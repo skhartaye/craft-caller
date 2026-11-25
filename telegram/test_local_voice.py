@@ -10,7 +10,11 @@ class ApprovedLocalAnswers(unittest.IsolatedAsyncioTestCase):
         self.ai.model = 'test'
         self.ai.history = []
         self.ai.misses = 0
-        self.ai.service = {'name':'Craft Caller','faqs':[{'id':'purpose','question':'Why are you calling? What is this test?', 'answer':'This is a voice test.'}]}
+        self.ai.service = {'name':'Craft Caller','company':'Craft Caller','faqs':[{'id':'purpose','question':'Why are you calling? What is this test?', 'answer':'This is a voice test.'}]}
+        self.ai.base_service = self.ai.service
+        self.ai.language = 'en'
+        self.ai.tagalog_enabled = True
+        self.ai.speech_speed = 100
         self.ai.client = AsyncMock()
         self.ai.conversation = ServiceConversation(self.ai.service)
         self.respond_with('purpose')
@@ -52,10 +56,31 @@ class ApprovedLocalAnswers(unittest.IsolatedAsyncioTestCase):
 
     async def test_followups_include_bounded_context(self):
         await self.ai.answer_text('What is this test?')
-        await self.ai.answer_text('Can you repeat that?')
+        await self.ai.answer_text('What would that need?')
         import json
         payload=self.ai.client.post.call_args.kwargs['json']
         data=json.loads(payload['messages'][-1]['content'])
         self.assertEqual(data['recentConversation'][0]['text'],'What is this test?')
-        self.assertEqual(data['latestCustomerUtterance'],'Can you repeat that?')
+        self.assertEqual(data['latestCustomerUtterance'],'What would that need?')
         self.assertLessEqual(len(self.ai.history),4)
+
+    async def test_tagalog_switch_and_completion(self):
+        reply,end=await self.ai.answer_text('Tagalog please')
+        self.assertIn('magtatagalog',reply)
+        self.assertFalse(end)
+        self.ai.base_service['faqs'][0]['answer_tl']='Pagsubok ito sa boses.'
+        reply,end=await self.ai.answer_text('Ano po ito?')
+        self.assertIn('Pagsubok ito sa boses.',reply)
+        self.assertIn('Nasagot po ba',reply)
+        self.assertTrue((await self.ai.answer_text('salamat po'))[1])
+
+    async def test_repeat_and_slower_preserve_previous_facts(self):
+        reply,_=await self.ai.answer_text('What is this test?')
+        self.assertEqual((await self.ai.answer_text('repeat that'))[0],reply)
+        self.assertEqual((await self.ai.answer_text('slower please'))[0],reply)
+        self.assertEqual(self.ai.speech_speed,85)
+
+    async def test_busy_does_not_claim_callback_scheduled(self):
+        reply,end=await self.ai.answer_text('busy ako')
+        self.assertTrue(end)
+        self.assertIn('Wala po akong naiskedyul',reply)

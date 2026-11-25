@@ -51,3 +51,18 @@ The opening identifies the company and AI, states the service reason, and asks w
 Local classifier model: https://ollama.com/library/qwen2.5:3b (Qwen license; downloaded separately, not bundled). `LOCAL_STT_MODEL=whisper-base` selects the previous installed recognizer explicitly.
 
 On the tested RTX 4050 Windows setup, install `requirements-cuda.txt` and set `LOCAL_STT_DEVICE=cuda`. The worker adds only that Python environment's NVIDIA runtime directories to its process DLL search path; no system PATH or driver settings are changed. CPU remains the portable default. Synthetic English recognition and FAQ selection passed with GPU processing; this does not verify noisy live input or interruption handling. Conversations remain half-duplex: listen while Marco speaks, then respond.
+
+
+## Bilingual conversation prototype
+
+A service snapshot can include `greeting_tl` and one `answer_tl` for each FAQ. These are reviewed translations of the same approved facts, tied to the same FAQ IDs. They are not generated during a call. The local worker switches to these texts for recognized Tagalog/Taglish or an explicit language request, and can switch back to English. It retains only the recent two turns in memory. Caller audio and transcripts are not stored.
+
+Shared copy in `dialogue.py` supplies English and Tagalog greetings, clarification, completion, busy/no-callback, repeat and stop responses. Clear completion is contextual: “hindi” at the opening declines help, while “hindi” after an answer asks what remains unanswered. Feature questions about stopping do not count as stop commands. Repetition reuses the previous response, and slower requests adjust playback speed. Automatic interruption while Marco speaks remains unsupported; the caller listens between replies.
+
+### Local Tagalog audio preparation
+
+The English Piper voice is not presented as a native Tagalog voice. The experimental Tagalog path uses pre-generated script PCM from a local VoxCPM2-compatible runtime. `voice_cache.py` hashes the exact spoken script; changing a translation requires preparing its audio again. `TAGALOG_VOICE_CACHE` points to the cache. With that setting, the worker refuses to dial when a required approved phrase has no audio. Synthesized script clips are stored; callee audio is not.
+
+`python telegram/prepare_tagalog.py --service <snapshot.json> --cache <cache-directory> --reference <synthetic-voice.wav>` connects only to the local prototype server on `127.0.0.1:8093`, renders the fixed phrases, validates duration and converts them to 24 kHz mono PCM using FFmpeg. The reference in the local test was generated synthetically, not cloned from a real person. No runtime binaries, model weights or private reference files are included in this repository.
+
+The test runtime was [VoxGen release 0.7.67](https://github.com/NullMagic2/VoxGen/releases/tag/release_0.7.67), ZIP SHA-256 `71b38558cfcbfed9bb93c31e724c40a6a83d632277a2e0a5d52da3c7ca394005`. The model is [OpenBMB VoxCPM2](https://huggingface.co/openbmb/VoxCPM2), Apache-2.0, in the [DennisHuang648 GGUF conversion](https://huggingface.co/DennisHuang648/VoxCPM2-GGUF). **The VoxGen repository has no published license identified during inspection. Its use or redistribution for a paid deployment has not been cleared.** It is only an experimental local preparation path here; resolve runtime rights or replace it with a properly licensed implementation before deployment. Audio pronunciation, voice consistency and noisy Taglish still require listener evaluation.
