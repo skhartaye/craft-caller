@@ -17,7 +17,10 @@ class LocalVoiceAI:
         self.conversation = ServiceConversation(service)
         self.model = os.environ.get('OLLAMA_MODEL', 'llama3.2:3b')
         model_dir = Path(os.environ['LOCAL_VOICE_DIR'])
-        self.voice = PiperVoice.load(str(model_dir / 'en_US-ljspeech-medium.onnx'))
+        voice_name = os.environ.get('PIPER_VOICE','en_US-ljspeech-medium')
+        if not re.fullmatch(r'[A-Za-z0-9_-]+',voice_name):
+            raise ValueError('Invalid local voice name.')
+        self.voice = PiperVoice.load(str(model_dir / (voice_name + '.onnx')))
         self.stt = WhisperModel(str(model_dir / 'whisper-base'), device='cpu', compute_type='int8', cpu_threads=4, local_files_only=True)
         self.client = httpx.AsyncClient(base_url='http://127.0.0.1:11434/', timeout=45, trust_env=False)
 

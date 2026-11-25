@@ -231,7 +231,8 @@ async def run_call(args):
                 speaking=False
         async def conversation():
             nonlocal speaking
-            await say(f'Hi, I am an AI assistant calling on behalf of {service["company"]}. {service["reason"]} Do you need any help with {service["name"]} today? You can say stop at any time.')
+            opening=service['greeting'].strip() or f'Hi, I am calling from {service["company"]}. {service["reason"]} Do you need help with {service["name"]} today?'
+            await say(opening + ' You can say stop at any time.')
             for _ in range(8):
                 try:
                     utterance=await asyncio.wait_for(queue.get(),timeout=20)
