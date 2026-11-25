@@ -1,17 +1,34 @@
 # Callcraft Studio
 
-Next.js / React / TypeScript first-version caller configuration website. Run `npm install`, `npm run dev`, `npm run build`, and `npm test`.
+Source repository: [skhartaye/craft-caller](https://github.com/skhartaye/craft-caller).
 
-## Implemented
+Next.js, React and TypeScript studio, with a static frontend and Netlify server functions. Supabase supplies authentication and Postgres; OpenAI supplies optional text-based approved-answer matching. This is not yet a live telephone caller.
 
-Service creation and editing, saved conversation instructions, approved FAQ management, local browser persistence, archive (retains original records), JSON export, scripted conversation practice, connection prerequisites, responsive workspace UI.
+## Run and verify
 
-## Important boundaries
+`npm ci`, `npm run build`, `npm test`. For a local frontend and real function routes, use `npx netlify-cli dev --offline --dir out --framework '#static' --port 3017 --no-open`. `npm run dev` serves only the frontend.
 
-This is a local-first prototype. It has no user accounts, server database, AI inference, telephony, recording, appointment booking, or real opt-out enforcement. Practice uses keyword matching, explicitly labeled in the interface. Instructions are saved but not executed by a model. Browser storage is not tenant isolation or an audit system. Do not use it to store customer contact lists or secrets. The sample business content is illustrative.
+## Available workflows
 
-## Production continuation
+- Browser drafts: service editing, approved FAQs, saved instructions, scripted practice, JSON export, archive and restoration.
+- Cloud workspace: password sign-in using an existing Supabase account, owner-isolated services, immutable versions, optimistic conflict protection, archive/restore. Cloud records are not mirrored to local draft storage. Sign-out clears cloud records from the interface. No automatic upload of browser data occurs.
+- AI practice: explicitly select AI mode on a saved cloud service. The backend retrieves the authorized service version, applies request limits, and asks the model to select FAQ IDs. Only approved answer text is returned; invented IDs fall back to a handoff. The model may still choose an irrelevant answer, so real-world evaluation is required. Service instructions cannot override server boundaries.
 
-Keep this repository as the modular application. Before live calling: integrate Supabase Auth and Postgres with tenant membership and RLS; move records to the server; add immutable service versions and append-only audit events; connect a persistent Node.js call bridge to Twilio and OpenAI Realtime. Authenticate and authorize every request, validate webhook signatures, keep API keys server-side, and enforce contact eligibility, opt-outs, scheduling time zones, deduplication, concurrency, duration and spending caps on the server. Derive readiness from actual configuration and verification results. Confirm destination country, contact source, intended use and calling requirements before enabling outbound calls.
+## Deployment configuration
 
-The static export is deployed privately for reviewing the workflow. It is not a production calling service.
+1. The user selected a dedicated Callcraft Supabase project. Review and apply `supabase/migrations/202611250001_callcraft.sql` once after provisioning it. This creates only `callcraft_*` objects. Verify actual hosted authentication and RLS before production. PGlite tests exercise PostgreSQL security and mutations locally; they do not verify a hosted project.
+2. Configure `SUPABASE_URL` and `SUPABASE_ANON_KEY` in Netlify. Use a publishable/anon key only; privileged secret/service-role keys are refused.
+3. Configure `OPENAI_API_KEY` and an explicit `OPENAI_MODEL` supporting Responses structured outputs. Keys stay server-side. API credits are consumed only when a signed-in user selects AI practice and sends a reply. Pilot limits: 10 requests/minute and 100/rolling 24 hours per user. Each request reserves a slot before provider invocation, including provider failures. These are not a total dollar budget; configure a provider project budget before broader use.
+4. `netlify.toml` deploys `out/` and bundles `netlify/functions`. Authorize the CLI and deploy a dedicated Callcraft project. Do not overwrite another app or copy credentials from another app.
+
+The existing ChatGPT Sites publication remains a separate static prototype. It cannot run Netlify functions. The current repository is prepared for Netlify, but is not deployed there until a successful deployment is verified.
+
+## Security and source of truth
+
+Each service has one owner. Content lives in immutable versions; the current-service view derives the latest version and archive state. RLS protects reads; scoped database functions validate ownership before mutations. App roles cannot directly update or delete history. Server requests use the user's JWT instead of a privileged key. Locks and expected versions prevent lost edits. Rate limits derive from immutable request events. Auth uses the Supabase SDK.
+
+This release supports individual workspaces. Shared organizations and roles need explicit requirements. Example service content is illustrative.
+
+## Not implemented or enabled
+
+Voice, Twilio dialing, contacts, recording, real-world opt-outs, callbacks, and appointment booking. The status endpoint always reports live calling disabled. Before enabling calls, verify destination country, contact eligibility, calling hours, provider setup, signature-verified webhooks, deduplication, global spending caps, opt-out enforcement, and accountable outcomes. A persistent call bridge is still needed for live audio; Netlify request functions are not that bridge.

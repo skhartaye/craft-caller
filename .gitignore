@@ -5,3 +5,6 @@ out/
 !.env.example
 *.tsbuildinfo
 work/
+
+# Local Netlify folder
+.netlify
