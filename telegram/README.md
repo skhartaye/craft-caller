@@ -34,6 +34,10 @@ The local classifier first requires shared subject words with approved FAQs, acc
 
 Piper engine: [GPL-3.0-or-later](https://github.com/OHF-Voice/piper1-gpl). The selected voice's [model card](https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/ljspeech/medium/MODEL_CARD) identifies public-domain LJ Speech training data and training from scratch. [Faster Whisper](https://github.com/SYSTRAN/faster-whisper) is MIT licensed. Models are downloaded separately rather than bundled. Preserve model cards and review engine obligations before redistributing binaries.
 
+## Short service conversation
+
+The opening identifies the company and AI, states the service reason, and asks whether help is needed. An initial short refusal ends politely. An approved FAQ answer is followed by “Does that answer your question?” A clear yes or thanks then ends the conversation and reaches the existing call cleanup; no keeps it open for another question. New substantive questions are evaluated normally, even if they begin with “no.” Stop requests always end immediately. Both voice backends use the same in-memory conversation state. No customer response or completion flag is stored separately. These completion rules have offline tests; a clean live completion hangup still requires verification.
+
 ## Sources and licenses
 
 - [Telegram call protocol](https://core.telegram.org/api/calls) and [user-only requestCall](https://core.telegram.org/method/phone.requestCall).

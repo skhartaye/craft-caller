@@ -49,6 +49,41 @@ def stop_requested(text: str) -> bool:
     return bool(re.search(r'\b(stop|unsubscribe|goodbye|bye)\b|do not call|don.t call|remove me|not interested|end (the|this) call|ayoko|tama na', text, re.I))
 
 
+class ServiceConversation:
+    """Short service check; hang up only after an explicit completion or refusal."""
+    def __init__(self, service):
+        self.service = service
+        self.awaiting_completion = False
+
+    def before_answer(self, text):
+        normalized = re.sub(r'[^a-z0-9 ]', '', text.lower()).strip()
+        if stop_requested(text):
+            return 'Understood. I will end the call now. Thank you for your time.', True
+        yes = normalized in {'yes','yes please','yeah','yep','yup','sure','okay','ok','oo','opo'}
+        no = normalized in {'no','no thanks','no thank you','nope','not now','not today','no need','no i dont need help','wala','wala naman','hindi'}
+        done = normalized in {'thanks','thank you','thats all','that is all','all good','im good','that helps','that answers my question','yes that answers it','yes thanks','yes thank you','nothing else','thank you thats all'}
+        if self.awaiting_completion:
+            if yes or done:
+                return 'Glad I could help. Thank you for your time. Goodbye!', True
+            if no:
+                self.awaiting_completion = False
+                return 'Okay. What else would you like to know?', False
+        elif no or done:
+            return 'No problem. Thank you for your time. Goodbye!', True
+        elif yes:
+            return f'Of course. What help do you need with {self.service["name"]}?', False
+        return None
+
+    def after_answer(self, reply, ended):
+        if ended:
+            return reply, True
+        answers = [f['answer'] for f in self.service['faqs']]
+        if reply in answers or any(reply == a + ' ' + b for a in answers for b in answers):
+            self.awaiting_completion = True
+            return reply + ' Does that answer your question?', False
+        return reply, False
+
+
 def approved_reply(decision: object, service: dict) -> tuple[str, bool]:
     if not isinstance(decision, dict):
         return FALLBACK, False

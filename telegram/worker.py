@@ -15,7 +15,7 @@ import csv
 import subprocess
 from datetime import datetime, timezone
 
-from core import FRAME_BYTES, approved_reply, load_service, stop_requested, validate_peer, wav_bytes, UtteranceDetector
+from core import FRAME_BYTES, ServiceConversation, approved_reply, load_service, stop_requested, validate_peer, wav_bytes, UtteranceDetector
 
 ROOT = Path(__file__).resolve().parents[1]
 # Session credentials are deliberately outside the source checkout and outputs.
@@ -99,6 +99,7 @@ class VoiceAI:
     def __init__(self, service: dict):
         import httpx
         self.service = service
+        self.conversation = ServiceConversation(service)
         self.stt = required('OPENAI_STT_MODEL')
         self.model = required('OPENAI_MODEL')
         self.tts = required('OPENAI_TTS_MODEL')
@@ -118,6 +119,9 @@ class VoiceAI:
         if response.status_code != 200:
             raise RuntimeError('AI transcription failed; ending the test without retrying.')
         text = response.json().get('text','').strip()[:1200]
+        immediate = self.conversation.before_answer(text)
+        if immediate is not None:
+            return immediate
         if not text:
             return 'I didn’t catch that. Could you repeat your question?',False
         if stop_requested(text):
@@ -137,7 +141,7 @@ class VoiceAI:
         reply, ended=approved_reply(decision,self.service)
         self.history.extend([{'role':'customer','text':text},{'role':'caller','text':reply}])
         self.history=self.history[-6:]
-        return reply,ended
+        return self.conversation.after_answer(reply,ended)
 
 
 async def run_call(args):
@@ -184,8 +188,9 @@ async def run_call(args):
         if getattr(args,'voice_backend','openai')=='local':
             from local_voice import LocalVoiceAI
             ai=LocalVoiceAI(service)
-            # Warm the local model before ringing, outside the call time limit.
-            await ai.answer_text('What is this test?')
+            # Load the model before ringing without advancing the conversation.
+            warm = await ai.client.post('api/generate',json={'model':ai.model,'stream':False,'keep_alive':'10m'})
+            warm.raise_for_status()
         else:
             ai=VoiceAI(service)
         deadline=time.monotonic()+120
@@ -226,12 +231,12 @@ async def run_call(args):
                 speaking=False
         async def conversation():
             nonlocal speaking
-            await say(f'Hi, I’m an AI voice assistant calling on behalf of {service["company"]}. This is the test call you agreed to. {service["reason"]} You can say stop at any time.')
+            await say(f'Hi, I am an AI assistant calling on behalf of {service["company"]}. {service["reason"]} Do you need any help with {service["name"]} today? You can say stop at any time.')
             for _ in range(8):
                 try:
                     utterance=await asyncio.wait_for(queue.get(),timeout=20)
                 except TimeoutError:
-                    await say('I haven’t heard a reply, so I’ll end this test. Thank you.')
+                    await say('I have not heard a reply, so I will end the call. Thank you for your time.')
                     return
                 speaking=True
                 detector.reset()

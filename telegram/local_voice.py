@@ -5,7 +5,7 @@ import os
 import re
 from pathlib import Path
 
-from core import RATE, approved_reply, stop_requested
+from core import RATE, ServiceConversation, approved_reply, stop_requested
 
 
 class LocalVoiceAI:
@@ -14,6 +14,7 @@ class LocalVoiceAI:
         from faster_whisper import WhisperModel
         from piper import PiperVoice
         self.service = service
+        self.conversation = ServiceConversation(service)
         self.model = os.environ.get('OLLAMA_MODEL', 'llama3.2:3b')
         model_dir = Path(os.environ['LOCAL_VOICE_DIR'])
         self.voice = PiperVoice.load(str(model_dir / 'en_US-ljspeech-medium.onnx'))
@@ -44,6 +45,12 @@ class LocalVoiceAI:
         return ' '.join(s.text.strip() for s in segments).strip()[:1200]
 
     async def answer_text(self, text):
+        immediate = self.conversation.before_answer(text)
+        if immediate is not None:
+            return immediate
+        return self.conversation.after_answer(*(await self.select_answer(text)))
+
+    async def select_answer(self, text):
         if stop_requested(text):
             return approved_reply({'action':'stop'}, self.service)
         if not text.strip():
