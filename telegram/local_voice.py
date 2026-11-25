@@ -56,7 +56,7 @@ class LocalVoiceAI:
         samples = np.frombuffer(pcm, dtype='<i2').astype(np.float32) / 32768
         positions = np.arange(round(len(samples) * 16000 / RATE)) * RATE / 16000
         audio = np.interp(positions, np.arange(len(samples)), samples).astype(np.float32)
-        segments, _ = self.stt.transcribe(audio, beam_size=3, condition_on_previous_text=False, initial_prompt='Craft Caller, Marco, setup, monthly support, pesos, Telegram, email.')
+        segments, _ = self.stt.transcribe(audio, language=os.environ.get('LOCAL_STT_LANGUAGE') or None, beam_size=3, condition_on_previous_text=False, initial_prompt='Craft Caller, Marco, setup, monthly support, pesos, Telegram, email.')
         return ' '.join(s.text.strip() for s in segments if s.no_speech_prob < .7 and s.avg_logprob > -1.0).strip()[:1200]
 
     async def answer_text(self, text):
@@ -109,7 +109,9 @@ class LocalVoiceAI:
         except (ValueError, KeyError, TypeError, AttributeError):
             answer_id = None
         if answer_id not in ids:
+            print('Answer routing: clarification needed.',flush=True)
             return approved_reply(None, self.service)
+        print('Answer routing: approved FAQ matched.',flush=True)
         return approved_reply({'action':'answer','answerIds':[answer_id]}, self.service)
 
     async def reply(self, pcm):
