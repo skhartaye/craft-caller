@@ -119,6 +119,11 @@ class UtteranceDetector:
         self.silence = 0
         self.voiced = 0
 
+    def flush(self):
+        result = bytes(self.buffer) if self.voiced >= int(.25 * BYTES_PER_SECOND) else None
+        self.reset()
+        return result
+
     def push(self, frame: bytes) -> bytes | None:
         frame = frame[:len(frame) // 2 * 2]
         if not frame:
@@ -135,7 +140,5 @@ class UtteranceDetector:
         if active or self.buffer:
             self.buffer.extend(frame)
         if len(self.buffer) >= 12 * BYTES_PER_SECOND or self.silence >= int(.7 * BYTES_PER_SECOND):
-            result = bytes(self.buffer) if self.voiced >= int(.25 * BYTES_PER_SECOND) else None
-            self.reset()
-            return result
+            return self.flush()
         return None

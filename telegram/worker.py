@@ -176,6 +176,8 @@ async def run_call(args):
     queue=asyncio.Queue(maxsize=1)
     speaking=False
     tasks=[]
+    last_frame_at=0.0
+    diagnostics={'incoming_frames':0,'incoming_bytes':0,'utterances':0,'replies':0}
     deadline=time.monotonic()+120
     outcome='not_started'
     try:
@@ -201,34 +203,58 @@ async def run_call(args):
                 end.set()
         @voice.on_update(filters.stream_frame(Direction.INCOMING,Device.MICROPHONE))
         async def received(_client,update):
-            if update.chat_id!=peer.id or speaking or end.is_set():
+            nonlocal last_frame_at
+            if update.chat_id!=peer.id or end.is_set():
                 return
             for frame in update.frames:
+                diagnostics['incoming_frames']+=1
+                diagnostics['incoming_bytes']+=len(frame.frame)
+                if diagnostics['incoming_frames']==1:
+                    print('Incoming Telegram audio received.',flush=True)
+                if speaking:
+                    continue
+                last_frame_at=time.monotonic()
                 utterance=detector.push(frame.frame)
                 if utterance and queue.empty():
+                    diagnostics['utterances']+=1
+                    print('Speech segment ready for recognition.',flush=True)
                     queue.put_nowait(utterance)
         await voice.start()
         print('Placing one Telegram test call. Maximum session: 120 seconds. No automatic retry.')
         await asyncio.wait_for(voice.play(peer.id,MediaStream(ExternalMedia.AUDIO,AudioQuality.LOW),CallConfig(timeout=30)),timeout=35)
         await voice.record(peer.id,RecordStream(True,AudioQuality.LOW))
         outcome='connected'
+        print('Call connected; incoming audio capture enabled.',flush=True)
+        async def flush_paused_speech():
+            while not end.is_set():
+                await asyncio.sleep(.1)
+                if not speaking and detector.buffer and time.monotonic()-last_frame_at>=.8:
+                    utterance=detector.flush()
+                    if utterance and queue.empty():
+                        diagnostics['utterances']+=1
+                        print('Speech segment ready after audio pause.',flush=True)
+                        queue.put_nowait(utterance)
         async def say(text):
             nonlocal speaking
             speaking=True
             detector.reset()
             try:
                 pcm=await ai.speak(text)
+                playback_started=time.monotonic()
                 # Limit each reply to 35 seconds, and send 10 ms mono PCM16 frames.
                 for offset in range(0,min(len(pcm),35*48000),FRAME_BYTES):
                     if end.is_set() or time.monotonic()>=deadline:
                         return
-                    started=time.monotonic()
                     frame=pcm[offset:offset+FRAME_BYTES].ljust(FRAME_BYTES,b'\0')
                     await voice.send_frame(peer.id,Device.MICROPHONE,frame)
-                    await asyncio.sleep(max(0,.01-(time.monotonic()-started)))
+                    # Pace against the full audio clock so scheduling overhead
+                    # does not accumulate into increasingly slow playback.
+                    next_frame_at=playback_started+(offset+FRAME_BYTES)/48000
+                    await asyncio.sleep(max(0,next_frame_at-time.monotonic()))
             finally:
                 detector.reset()
                 speaking=False
+                print('Playback finished; listening for the recipient.',flush=True)
         async def conversation():
             nonlocal speaking
             opening=service['greeting'].strip() or f'Hi, I am calling from {service["company"]}. {service["reason"]} Do you need help with {service["name"]} today?'
@@ -242,14 +268,17 @@ async def run_call(args):
                 speaking=True
                 detector.reset()
                 reply,should_end=await ai.reply(utterance)
+                diagnostics['replies']+=1
+                print('Reply selected; playing response.',flush=True)
                 await say(reply)
                 if should_end:
                     return
             await say('That’s the end of this short test. Thank you for your time.')
         task=asyncio.create_task(conversation())
         watcher=asyncio.create_task(end.wait())
-        tasks=[task,watcher]
-        done,_=await asyncio.wait(tasks,timeout=max(0,deadline-time.monotonic()),return_when=asyncio.FIRST_COMPLETED)
+        flusher=asyncio.create_task(flush_paused_speech())
+        tasks=[task,watcher,flusher]
+        done,_=await asyncio.wait([task,watcher],timeout=max(0,deadline-time.monotonic()),return_when=asyncio.FIRST_COMPLETED)
         if task in done:
             await task
         outcome='finished' if done else 'time_limit'
@@ -273,6 +302,8 @@ async def run_call(args):
         lock.unlink(missing_ok=True)
         # Metadata only. No phone numbers, usernames, audio, keys or transcripts.
         event={'at':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),'outcome':outcome,'service_sha256':hashlib.sha256(service_path.read_bytes()).hexdigest()}
+        event['audio_diagnostics']=diagnostics
+        print('Call diagnostics: '+json.dumps(diagnostics),flush=True)
         with (PRIVATE/'call-events.jsonl').open('a',encoding='utf-8') as f:
             f.write(json.dumps(event)+'\n')
 

@@ -88,4 +88,5 @@ class LocalVoiceAI:
 
     async def reply(self, pcm):
         text = await asyncio.to_thread(self.transcribe, pcm)
+        print('Speech recognition: ' + ('text detected.' if text else 'no text detected.'),flush=True)
         return await self.answer_text(text)

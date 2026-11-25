@@ -44,6 +44,13 @@ class CallerRules(unittest.TestCase):
         with wave.open(io.BytesIO(wav_bytes(b'\0'*48000)),'rb') as wav:
             self.assertEqual((wav.getframerate(),wav.getnchannels(),wav.getsampwidth(),wav.getnframes()),(24000,1,2,24000))
 
+    def test_voice_can_finish_when_sender_stops_sending_frames(self):
+        detector=UtteranceDetector()
+        pcm=struct.pack('<h',1500)*12000
+        self.assertIsNone(detector.push(pcm))
+        self.assertEqual(detector.flush(),pcm)
+        self.assertIsNone(detector.flush())
+
     def test_archived_and_incomplete_service_exports_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'service.json'
