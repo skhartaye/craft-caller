@@ -4,6 +4,8 @@ Source repository: [skhartaye/craft-caller](https://github.com/skhartaye/craft-c
 
 Live website: [craft-caller.netlify.app](https://craft-caller.netlify.app). Dedicated Supabase project: `zjgcsdfngvidatczndkn`. Service schema applied and public connection variables configured on Netlify. Hosted sign-in and service saving still require end-to-end verification with real accounts; no phone call has been made.
 
+Calling direction: the user selected a regular personal Telegram account, not Twilio or business calling. See [Telegram worker setup](telegram/README.md). The local native dependencies import successfully on Windows and offline rules are tested. Telegram login, recipient identity, live audio, and an actual AI call remain unverified. The website exports service snapshots for the local worker; it does not yet launch Telegram calls.
+
 Next.js, React and TypeScript studio, with a static frontend and Netlify server functions. Supabase supplies authentication and Postgres; OpenAI supplies optional text-based approved-answer matching. This is not yet a live telephone caller.
 
 ## Run and verify

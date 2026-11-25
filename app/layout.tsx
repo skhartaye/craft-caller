@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { CloudProvider } from "../components/cloud-workspace";
 export const metadata: Metadata = {
-  title: "Callcraft — AI Caller Studio",
+  title: "Craft Caller — Telegram Voice Studio",
   description:
     "Build a more thoughtful caller. Define your services, approve its answers, and practice conversations.",
 };

@@ -8,3 +8,10 @@ work/
 
 # Local Netlify folder
 .netlify
+__pycache__/
+*.pyc
+*.session
+*.session-journal
+*.session-wal
+*.session-shm
+telegram-private/

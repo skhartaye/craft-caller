@@ -38,16 +38,19 @@ import {
   type CloudService,
 } from "../components/cloud-workspace";
 import { validateServiceContent } from "../lib/validation";
+import { TelegramSetup } from "../components/telegram-setup";
 type View =
   | "Overview"
   | "Services"
   | "Conversation rules"
   | "Practice room"
+  | "Telegram call"
   | "Call activity"
   | "Connections";
 const nav = [
   { name: "Overview", icon: LayoutGrid },
   { name: "Services", icon: BookOpen },
+  { name: "Telegram call", icon: Phone },
   { name: "Conversation rules", icon: SlidersHorizontal },
   { name: "Practice room", icon: FlaskConical },
   { name: "Call activity", icon: Phone },
@@ -549,10 +552,10 @@ export default function Home() {
                   </p>
                   <button
                     className="dark-btn"
-                    onClick={() => go(service ? "Practice room" : "Services")}
+                    onClick={() => go(service ? "Telegram call" : "Services")}
                   >
                     {service
-                      ? "Try a practice conversation"
+                      ? "Prepare a Telegram call"
                       : "Set up your first service"}
                     <ArrowUpRight size={18} />
                   </button>
@@ -683,10 +686,10 @@ export default function Home() {
                       view: "Practice room",
                     },
                     {
-                      title: "Connect live calling",
-                      detail: "Provider, eligibility, and call limits",
+                      title: "Prepare a Telegram call",
+                      detail: "Caller account, recipient, and local worker",
                       done: false,
-                      view: "Connections",
+                      view: "Telegram call",
                     },
                   ].map((item, i) => (
                     <button
@@ -1148,19 +1151,26 @@ export default function Home() {
               </aside>
             </div>
           )}
+          {view === "Telegram call" && (
+            <TelegramSetup
+              service={service}
+              onExport={exportService}
+              onServices={() => go("Services")}
+            />
+          )}
           {view === "Call activity" && (
             <section className="panel empty large">
               <span className="empty-orb">
                 <Phone size={33} />
               </span>
               <span className="pill">Live calling disabled</span>
-              <h2>No calls yet. Start with a practice.</h2>
+              <h2>Prepare your first Telegram call.</h2>
               <p>
-                Real call history will appear after a calling backend is
-                connected. Practice conversations are not phone calls.
+                The local worker is not connected to this website. Its test
+                outcomes remain on the caller’s computer.
               </p>
-              <button className="primary" onClick={() => go("Practice room")}>
-                Open practice room
+              <button className="primary" onClick={() => go("Telegram call")}>
+                Open Telegram setup
               </button>
             </section>
           )}
@@ -1171,17 +1181,17 @@ export default function Home() {
                 {[
                   {
                     title: "Voice intelligence",
-                    provider: "OpenAI · text practice first",
+                    provider: "OpenAI · speech and approved answers",
                     icon: AudioLines,
                     detail:
                       "Listens and responds using approved service knowledge.",
                   },
                   {
-                    title: "Phone calling",
-                    provider: "Twilio",
+                    title: "Telegram calling",
+                    provider: "Personal account · local worker",
                     icon: Phone,
                     detail:
-                      "Places eligible calls and reports delivery and call outcomes.",
+                      "A local native worker is prepared for an agreed one-to-one Telegram test. Live calling is not connected yet.",
                   },
                   {
                     title: "Accounts & storage",

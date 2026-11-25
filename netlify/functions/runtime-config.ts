@@ -11,6 +11,8 @@ export default async function handler(req: Request) {
       supabaseAnonKey: db?.key || null,
       aiConfigured: !!(process.env.OPENAI_API_KEY && process.env.OPENAI_MODEL),
       liveCallingEnabled: false,
+      callingChannel: "telegram",
+      telegramWorkerConnected: false,
     });
   } catch (e) {
     return failure(e);

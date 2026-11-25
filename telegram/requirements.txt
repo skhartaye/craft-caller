@@ -1,0 +1,4 @@
+py-tgcalls==3.0.1
+ntgcalls==3.0.7
+Telethon==1.42.0
+httpx==0.28.1
