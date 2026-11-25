@@ -120,6 +120,7 @@ export function useCloud() {
 }
 export function CloudAccount() {
   const cloud = useCloud();
+  const [createAccount, setCreateAccount] = useState(false);
   const [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
     [busy, setBusy] = useState(false),
@@ -166,24 +167,38 @@ export function CloudAccount() {
         </>
       ) : cloud.client ? (
         <form
-          aria-label="Sign in to cloud workspace"
+          aria-label={
+            createAccount
+              ? "Create cloud account"
+              : "Sign in to cloud workspace"
+          }
           onSubmit={async (e) => {
             e.preventDefault();
             setBusy(true);
             setMessage("");
             try {
-              const { error } = await cloud.client!.auth.signInWithPassword({
-                email,
-                password,
-              });
+              const { error } = createAccount
+                ? await cloud.client!.auth.signUp({
+                    email,
+                    password,
+                    options: { emailRedirectTo: window.location.origin },
+                  })
+                : await cloud.client!.auth.signInWithPassword({
+                    email,
+                    password,
+                  });
               if (error) throw error;
               setPassword("");
               setMessage(
-                "Signed in. Open Services to load your cloud records.",
+                createAccount
+                  ? "Check your email to confirm your account, then sign in here."
+                  : "Signed in. Open your cloud workspace to load your services.",
               );
             } catch {
               setMessage(
-                "Could not sign in. Check your email and password, or contact your workspace administrator.",
+                createAccount
+                  ? "Could not create the account. Use a strong password and a valid email, or try again later."
+                  : "Could not sign in. Check your email and password, or confirm your email first.",
               );
             } finally {
               setBusy(false);
@@ -208,14 +223,34 @@ export function CloudAccount() {
               id="cloud-password"
               name="password"
               type="password"
-              autoComplete="current-password"
+              autoComplete={createAccount ? "new-password" : "current-password"}
+              minLength={createAccount ? 8 : undefined}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
           <button className="primary" type="submit" disabled={busy}>
-            {busy ? "Signing in…" : "Sign in"}
+            {busy
+              ? "Please wait…"
+              : createAccount
+                ? "Create account"
+                : "Sign in"}
+          </button>
+          <button
+            type="button"
+            className="textbtn"
+            disabled={busy}
+            onClick={() => {
+              setCreateAccount(!createAccount);
+              setPassword("");
+              setMessage("");
+            }}
+            style={{ marginLeft: 16 }}
+          >
+            {createAccount
+              ? "Already have an account? Sign in"
+              : "Create an account"}
           </button>
         </form>
       ) : (

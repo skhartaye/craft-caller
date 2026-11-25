@@ -2,6 +2,8 @@
 
 Source repository: [skhartaye/craft-caller](https://github.com/skhartaye/craft-caller).
 
+Live website: [craft-caller.netlify.app](https://craft-caller.netlify.app). Dedicated Supabase project: `zjgcsdfngvidatczndkn`. Service schema applied and public connection variables configured on Netlify. Hosted sign-in and service saving still require end-to-end verification with real accounts; no phone call has been made.
+
 Next.js, React and TypeScript studio, with a static frontend and Netlify server functions. Supabase supplies authentication and Postgres; OpenAI supplies optional text-based approved-answer matching. This is not yet a live telephone caller.
 
 ## Run and verify
@@ -21,7 +23,7 @@ Next.js, React and TypeScript studio, with a static frontend and Netlify server 
 3. Configure `OPENAI_API_KEY` and an explicit `OPENAI_MODEL` supporting Responses structured outputs. Keys stay server-side. API credits are consumed only when a signed-in user selects AI practice and sends a reply. Pilot limits: 10 requests/minute and 100/rolling 24 hours per user. Each request reserves a slot before provider invocation, including provider failures. These are not a total dollar budget; configure a provider project budget before broader use.
 4. `netlify.toml` deploys `out/` and bundles `netlify/functions`. Authorize the CLI and deploy a dedicated Callcraft project. Do not overwrite another app or copy credentials from another app.
 
-The existing ChatGPT Sites publication remains a separate static prototype. It cannot run Netlify functions. The current repository is prepared for Netlify, but is not deployed there until a successful deployment is verified.
+The existing ChatGPT Sites publication remains a separate static prototype. Netlify is the active deployment and publishes from GitHub `main`.
 
 ## Security and source of truth
 
