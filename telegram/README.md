@@ -26,11 +26,11 @@ Netlify cannot host this long-running native calling process. The website curren
 
 ## Local voice without API credits
 
-Install `requirements-local.txt` into the worker environment. Download the Faster Whisper base model to `<model-directory>/whisper-base` and the Piper `en_US-ljspeech-medium` voice and JSON config to `<model-directory>`. Set `LOCAL_VOICE_DIR` to that absolute directory. Ollama must already serve `llama3.2:3b` on loopback port 11434; `OLLAMA_MODEL` may select another installed local model. No cloud models are selected automatically.
+Install `requirements-local.txt` into the worker environment. Download the Faster Whisper small model to `<model-directory>/whisper-small` and the Piper `en_US-ljspeech-medium` voice and JSON config to `<model-directory>`. Set `LOCAL_VOICE_DIR` to that absolute directory. Ollama must already serve `qwen2.5:3b` on loopback port 11434; `OLLAMA_MODEL` may select another installed local model. No cloud models are selected automatically.
 
 Run the existing call command with `--voice-backend local`. This uses local CPU transcription, local Piper synthesis and loopback-only Ollama classification. No OpenAI key is needed, and call speech is not sent to OpenAI. Telegram still carries the call. The PC must remain running. Model files and credentials remain outside the repository.
 
-The local classifier first requires shared subject words with approved FAQs, accepts exact approved questions directly, then uses constrained JSON selection for other candidates. Unknown or invalid selections fall back to the approved handoff. This deliberately conservative matching may miss paraphrases; test the service's actual questions before use. It cannot generate arbitrary spoken answers. Stop detection remains deterministic. Local voices and recognition are checked with a synthetic speech round trip; this does not establish live microphone quality.
+The local classifier selects a single approved FAQ identifier using recent conversation context and understands paraphrases without a keyword gate. Unknown or invalid selections prompt a rephrase, then a short topic menu; a third unmatched turn ends politely instead of repeatedly offering a team handoff. Context remains in memory only. Whisper small filters low-confidence/no-speech segments. Test the actual service questions before use. It cannot generate arbitrary spoken answers. Stop detection remains deterministic. Local voices and recognition are checked with a synthetic speech round trip; this does not establish live microphone quality.
 
 Piper engine: [GPL-3.0-or-later](https://github.com/OHF-Voice/piper1-gpl). The selected voice's [model card](https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/ljspeech/medium/MODEL_CARD) identifies public-domain LJ Speech training data and training from scratch. [Faster Whisper](https://github.com/SYSTRAN/faster-whisper) is MIT licensed. Models are downloaded separately rather than bundled. Preserve model cards and review engine obligations before redistributing binaries.
 
@@ -47,3 +47,7 @@ The opening identifies the company and AI, states the service reason, and asks w
 ## Offline checks
 
 `python -m unittest discover -s telegram -p "test_*.py"` runs without Telegram, credentials, audio uploads or paid model requests.
+
+Local classifier model: https://ollama.com/library/qwen2.5:3b (Qwen license; downloaded separately, not bundled). `LOCAL_STT_MODEL=whisper-base` selects the previous installed recognizer explicitly.
+
+On the tested RTX 4050 Windows setup, install `requirements-cuda.txt` and set `LOCAL_STT_DEVICE=cuda`. The worker adds only that Python environment's NVIDIA runtime directories to its process DLL search path; no system PATH or driver settings are changed. CPU remains the portable default. Synthetic English recognition and FAQ selection passed with GPU processing; this does not verify noisy live input or interruption handling. Conversations remain half-duplex: listen while Marco speaks, then respond.
