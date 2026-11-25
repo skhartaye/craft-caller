@@ -10,6 +10,10 @@ import os
 from pathlib import Path
 import sys
 import time
+import re
+import csv
+import subprocess
+from datetime import datetime, timezone
 
 from core import FRAME_BYTES, approved_reply, load_service, stop_requested, validate_peer, wav_bytes, UtteranceDetector
 
@@ -25,8 +29,23 @@ def required(name: str) -> str:
     return value
 
 
-def api_credentials():
-    return int(required('TELEGRAM_API_ID')), required('TELEGRAM_API_HASH')
+def api_credentials(interactive=False):
+    api_id=os.environ.get('TELEGRAM_API_ID','').strip()
+    api_hash=os.environ.get('TELEGRAM_API_HASH','').strip()
+    if interactive:
+        api_id=api_id or input('Telegram API ID (from your API application): ').strip()
+        api_hash=api_hash or getpass.getpass('Telegram API hash (hidden; stays in this process): ').strip()
+    if not api_id.isdigit() or int(api_id)<=0 or not re.fullmatch(r'[0-9a-fA-F]{32}',api_hash):
+        raise ValueError('Enter the numeric API ID and 32-character API hash from your own Telegram application.')
+    return int(api_id),api_hash
+
+
+def prepare_private_dir():
+    PRIVATE.mkdir(parents=True,exist_ok=True,mode=0o700)
+    if os.name=='nt':
+        row=next(csv.reader(subprocess.check_output(['whoami','/user','/fo','csv','/nh'],text=True).strip().splitlines()))
+        sid=row[1]
+        subprocess.run(['icacls',str(PRIVATE),'/inheritance:r','/grant:r',f'*{sid}:(OI)(CI)F','*S-1-5-18:(OI)(CI)F'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
 
 def doctor():
@@ -41,10 +60,11 @@ def doctor():
       'mode': 'Local prototype; no network login or call performed'}, indent=2))
 
 
-async def login():
+async def login(check_recipient=False):
     from telethon import TelegramClient
-    api_id, api_hash = api_credentials()
-    PRIVATE.mkdir(parents=True, exist_ok=True)
+    from telethon.tl.types import User
+    api_id, api_hash = api_credentials(interactive=True)
+    prepare_private_dir()
     client = TelegramClient(str(PRIVATE / 'caller'), api_id, api_hash)
     # The operator enters codes directly in their terminal, never on the website.
     try:
@@ -52,6 +72,25 @@ async def login():
           code_callback=lambda: getpass.getpass('Telegram login code (hidden): '),
           password=lambda: getpass.getpass('Telegram two-step password (hidden): '))
         print('Local Telegram session connected. No messages or calls sent.')
+        status={'sessionConnected':True,'recipientChecked':False,'readyForCall':False,'checkedAt':datetime.now(timezone.utc).isoformat()}
+        if check_recipient:
+            recipient=input('Receiving Telegram @username (not the caller account): ').strip()
+            if not re.fullmatch(r'@[A-Za-z0-9_]{5,32}',recipient):
+                raise ValueError('Enter the receiving account’s @username.')
+            me=await client.get_me()
+            peer=await client.get_entity(recipient)
+            status['recipientChecked']=True
+            try:
+                validate_peer(me.id,peer.id,bool(getattr(peer,'bot',False)),isinstance(peer,User))
+                status['differentAccounts']=True
+                print('Identity check passed: caller and recipient are different regular accounts.')
+            except ValueError:
+                status['differentAccounts']=False
+                raise
+            finally:
+                (PRIVATE/'connection-status.json').write_text(json.dumps(status,indent=2),encoding='utf-8')
+        else:
+            (PRIVATE/'connection-status.json').write_text(json.dumps(status,indent=2),encoding='utf-8')
     finally:
         await client.disconnect()
 
@@ -230,6 +269,7 @@ def main():
     commands=parser.add_subparsers(dest='command',required=True)
     commands.add_parser('doctor')
     commands.add_parser('login')
+    commands.add_parser('connect',help='Interactive local login and recipient identity check; never places a call')
     call=commands.add_parser('call')
     call.add_argument('--service',required=True,help='JSON export of the saved approved service')
     call.add_argument('--confirm-call',action='store_true')
@@ -239,8 +279,8 @@ def main():
     try:
         if args.command=='doctor':
             doctor()
-        elif args.command=='login':
-            asyncio.run(login())
+        elif args.command in ('login','connect'):
+            asyncio.run(login(check_recipient=args.command=='connect'))
         else:
             async def bounded_call():
                 await asyncio.wait_for(run_call(args),timeout=130)
